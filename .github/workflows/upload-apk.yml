@@ -2,6 +2,11 @@ name: Upload full APK
 
 on:
   workflow_dispatch:
+    inputs:
+      source_url:
+        description: HTTPS Dropbox URL of the original APK
+        required: true
+        type: string
 
 permissions:
   contents: write
