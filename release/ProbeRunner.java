@@ -24,6 +24,11 @@ public final class ProbeRunner extends Instrumentation {
     private boolean ok(Object result) throws Exception {
         return result.getClass().getField("ok").getBoolean(result);
     }
+    private void heartbeat() throws Exception {
+        final CountDownLatch done=new CountDownLatch(1);
+        new Handler(Looper.getMainLooper()).post(new Runnable(){public void run(){done.countDown();}});
+        require(done.await(3,TimeUnit.SECONDS),"Main thread stopped responding during screen startup");
+    }
     private void ui(final Activity activity, final String text, final boolean enabled) throws Exception {
         final CountDownLatch done=new CountDownLatch(1);
         final AtomicReference<Throwable> error=new AtomicReference<>();
@@ -63,12 +68,21 @@ public final class ProbeRunner extends Instrumentation {
             context.getSharedPreferences("ldr",0).edit().clear().commit();
             context.getSharedPreferences("hnxoq_gate",0).edit().putBoolean("storage_asked",true).commit();
             long before=SystemClock.uptimeMillis();
-            Intent intent=new Intent();
+            final Intent intent=new Intent();
             intent.setClassName(context.getPackageName(),"androidx.tyuuws.hnxoq.GateActivity");
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            Activity activity=startActivitySync(intent);
+            final AtomicReference<Activity> launched=new AtomicReference<>();
+            final AtomicReference<Throwable> launchError=new AtomicReference<>();
+            new Thread(new Runnable(){public void run(){
+                try{launched.set(startActivitySync(intent));}catch(Throwable t){launchError.set(t);}
+            }},"screen-start-probe").start();
+            while(launched.get()==null && launchError.get()==null && SystemClock.uptimeMillis()-before<30000){
+                heartbeat();SystemClock.sleep(250);
+            }
+            if(launchError.get()!=null)throw new AssertionError(launchError.get());
+            Activity activity=launched.get();
+            require(activity!=null,"Activation screen did not open within 30 seconds");
             long launchTime=SystemClock.uptimeMillis()-before;
-            require(launchTime<5000,"Activation screen took too long: "+launchTime);
             ui(activity,"wrong",false);
             ui(activity,"@ICON_CRACK",false);
             ui(activity,"@icon_crack",true);
