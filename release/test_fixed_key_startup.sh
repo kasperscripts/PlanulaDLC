@@ -12,6 +12,6 @@ adb logcat -c
 timeout 120s adb shell am instrument -w -r com.iconcrack.probe/com.iconcrack.probe.ProbeRunner > fixed-key-probe.txt 2>&1 || true
 cat fixed-key-probe.txt
 adb shell dumpsys activity lastanr > fixed-key-anr.txt || true
-adb logcat -d -t 1800 > fixed-key-logcat.txt
+timeout 10s adb logcat -d -t 1800 > fixed-key-logcat.txt 2>&1 || true
 adb pull /data/user/0/com.ScarletWork.CounterFlame/files/fixed-key-screen.png fixed-key-screen.png || true
 grep -q 'PASS: only @icon_crack accepted' fixed-key-probe.txt
