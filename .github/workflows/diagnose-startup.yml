@@ -1,0 +1,38 @@
+name: Diagnose cold startup
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  startup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: release/diagnose_startup.sh
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+      - name: Prepare runtime
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL
+          sudo chmod 666 /dev/kvm
+          curl --fail --location --retry 3 --output app.apk https://github.com/kasperscripts/PlanulaDLC/releases/download/v1.4.1-install-fix/PlanulaDLC-1.4.1-icon_crack-install-fix.apk
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -memory 3072 -partition-size 12288
+          script: bash release/diagnose_startup.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cold-start-diagnostics
+          path: |
+            startup-result.txt
+            startup-ui.xml
+            startup.png
+            startup-anr.txt
+            startup-logcat.txt
