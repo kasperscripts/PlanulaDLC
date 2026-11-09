@@ -1,0 +1,53 @@
+name: Verify fixed key and tablet startup
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  verify-upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            release/ProbeRunner.java
+            release/build_probe.sh
+            release/test_fixed_key_startup.sh
+            release/prepare_fixed_key.py
+            release/fixed-key.delta
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+      - name: Prepare runtime
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL
+          sudo chmod 666 /dev/kvm
+          sudo apt-get update
+          sudo apt-get install -y xdelta3
+      - name: Restore verified APK
+        run: python3 release/prepare_fixed_key.py
+      - name: Build activation instrumentation
+        run: bash release/build_probe.sh
+      - name: Test fixed key and high-resolution startup
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -memory 3072 -partition-size 12288
+          script: bash release/test_fixed_key_startup.sh
+      - name: Upload full tested APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload v1.4.1-fixed-key release/PlanulaDLC-1.4.1-icon_crack-fixed-key.apk --repo "$GITHUB_REPOSITORY"
+      - name: Keep runtime evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fixed-key-startup-evidence
+          path: |
+            fixed-key-probe.txt
+            fixed-key-anr.txt
+            fixed-key-logcat.txt
+            fixed-key-screen.png
