@@ -7,6 +7,7 @@ adb wait-for-device
 adb shell appops set --uid com.ScarletWork.CounterFlame MANAGE_EXTERNAL_STORAGE allow
 adb shell wm size 1600x2560
 adb shell wm density 320
+sleep 3
 adb logcat -c
 timeout 120s adb shell am instrument -w -r com.iconcrack.probe/com.iconcrack.probe.ProbeRunner > fixed-key-probe.txt 2>&1 || true
 cat fixed-key-probe.txt
