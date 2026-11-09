@@ -1,0 +1,48 @@
+name: Diagnose Android 15 installation
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Prepare disk and KVM
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL
+          sudo chmod 666 /dev/kvm
+          df -h /
+      - name: Download released APK
+        run: |
+          curl --fail --location --retry 3 --output app.apk https://github.com/kasperscripts/PlanulaDLC/releases/download/v1.4.1-icon-crack/PlanulaDLC-1.4.1-icon_crack.apk
+          echo "ce989384c75f2fa8e9315619837d5e09c206f3ef2988dd3574479220b3d8012c  app.apk" | sha256sum --check
+      - name: Test Android 15 package installation
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -memory 3072 -partition-size 6144
+          script: |
+            adb shell getprop ro.build.version.release
+            adb shell getprop ro.product.cpu.abilist
+            adb shell getprop ro.dalvik.vm.native.bridge
+            adb shell df -h /data
+            adb logcat -c
+            adb install --no-streaming --no-incremental app.apk > install-result.txt 2>&1 || true
+            cat install-result.txt
+            adb logcat -d -v brief | grep -E 'PackageManager|PackageInstaller|ziparchive|NativeLibraryHelper|INSTALL_|Failed to|invalid|Invalid' | tail -180 > install-logcat.txt || true
+            cat install-logcat.txt
+      - name: Keep installation diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android15-install-diagnostics
+          path: |
+            install-result.txt
+            install-logcat.txt
