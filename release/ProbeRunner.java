@@ -34,7 +34,7 @@ public final class ProbeRunner extends Instrumentation {
                     Field button=activity.getClass().getDeclaredField("button"); button.setAccessible(true);
                     EditText field=(EditText)input.get(activity);
                     if (text != null) field.setText(text);
-                    require(((TextView)button.get(activity)).isEnabled()==enabled,"Unexpected button state for "+text);
+                    require(((TextView)button.get(activity)).isClickable()==enabled,"Unexpected activation clickability for "+text);
                 } catch (Throwable t) { error.set(t); }
                 finally { done.countDown(); }
             }
@@ -61,6 +61,7 @@ public final class ProbeRunner extends Instrumentation {
             context.getSharedPreferences("ldr",0).edit().putString("k","old-any-key").commit();
             require("".equals(api.getMethod("savedKey").invoke(null)),"Old arbitrary key was retained");
             context.getSharedPreferences("ldr",0).edit().clear().commit();
+            context.getSharedPreferences("hnxoq_gate",0).edit().putBoolean("storage_asked",true).commit();
             long before=SystemClock.uptimeMillis();
             Intent intent=new Intent();
             intent.setClassName(context.getPackageName(),"androidx.tyuuws.hnxoq.GateActivity");
