@@ -1,0 +1,49 @@
+name: Verify Android 16 startup
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify-upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            release/ProbeRunner.java
+            release/build_probe.sh
+            release/test_fixed_key_startup.sh
+            release/prepare_fixed_key.py
+            release/fixed-key.delta
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+      - name: Prepare runtime
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL
+          sudo chmod 666 /dev/kvm
+          sudo apt-get update
+          sudo apt-get install -y xdelta3
+      - name: Restore verified APK
+        run: python3 release/prepare_fixed_key.py
+      - name: Build activation instrumentation
+        run: bash release/build_probe.sh
+      - name: Test fixed key and high-resolution startup
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -memory 3072 -partition-size 12288
+          script: bash release/test_fixed_key_startup.sh
+      - name: Keep runtime evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android16-startup-evidence
+          path: |
+            fixed-key-probe.txt
+            fixed-key-anr.txt
+            fixed-key-logcat.txt
+            fixed-key-screen.png
