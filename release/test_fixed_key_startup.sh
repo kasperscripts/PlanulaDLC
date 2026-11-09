@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 adb install --streaming --no-incremental release/PlanulaDLC-1.4.1-icon_crack-fixed-key.apk
-adb install -t probe-build/probe.apk
+adb install --no-incremental -t probe-build/probe.apk
 adb root || true
 adb wait-for-device
 adb shell appops set --uid com.ScarletWork.CounterFlame MANAGE_EXTERNAL_STORAGE allow
