@@ -1,0 +1,82 @@
+name: Test and upload Android 15 install fix
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  test-upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            release/prepare_install_fix.py
+            release/install-fix.delta
+            release/test_install.sh
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+      - name: Prepare disk and KVM
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL
+          sudo chmod 666 /dev/kvm
+          sudo apt-get update
+          sudo apt-get install -y xdelta3
+          df -h /
+      - name: Restore the fixed APK
+        run: python3 release/prepare_install_fix.py
+      - name: Verify APK signature
+        run: |
+          APK_VERIFY_TOOL=$(rg --files "$ANDROID_HOME/build-tools" | rg '/apksigner | sort -V | tail -1)
+          "$APK_VERIFY_TOOL" verify --min-sdk-version 35 --max-sdk-version 35 --verbose --print-certs release/PlanulaDLC-1.4.1-icon_crack-install-fix.apk
+      - name: Verify installation on Android 15
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -memory 3072 -partition-size 12288
+          script: bash release/test_install.sh
+      - name: Upload the full fixed APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload v1.4.1-install-fix release/PlanulaDLC-1.4.1-icon_crack-install-fix.apk --repo "$GITHUB_REPOSITORY"
+      - name: Keep installation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android15-fixed-installation
+          path: |
+            baseline-install.txt
+            fixed-install.txt
+            fixed-package.txt
+            fixed-install-logcat.txt
+ | sort -V | tail -1)
+          "$APK_VERIFY_TOOL" verify --min-sdk-version 35 --max-sdk-version 35 --verbose --print-certs release/PlanulaDLC-1.4.1-icon_crack-install-fix.apk
+      - name: Verify installation on Android 15
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -memory 3072 -partition-size 12288
+          script: bash release/test_install.sh
+      - name: Upload the full fixed APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload v1.4.1-install-fix release/PlanulaDLC-1.4.1-icon_crack-install-fix.apk --repo "$GITHUB_REPOSITORY"
+      - name: Keep installation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android15-fixed-installation
+          path: |
+            baseline-install.txt
+            fixed-install.txt
+            fixed-package.txt
+            fixed-install-logcat.txt
