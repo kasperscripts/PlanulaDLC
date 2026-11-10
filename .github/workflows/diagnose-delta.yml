@@ -1,0 +1,35 @@
+name: Inspect original Delta Android 16 startup
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: release/delta/diagnose_delta.sh
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+      - name: Prepare runtime
+        run: |
+          sudo chmod 666 /dev/kvm
+          curl --fail --location --retry 2 --output original.apk 'https://www.dropbox.com/scl/fi/kvmuy3i9q8ieg7kpehf5r/Delta-2.745.1142-1.apk?rlkey=vyt71ccums4fh484el6lobh22&dl=1'
+          echo '4d22c8be0f81251d18dc53a49b42a4c27ec64eb1ee039106a33913987027c3f2  original.apk' | sha256sum --check
+      - name: Inspect stock startup and downloaded modules
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -memory 4096 -partition-size 8192
+          script: bash release/delta/diagnose_delta.sh
+      - name: Keep diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: delta-original-startup
+          path: delta-evidence/
