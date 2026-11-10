@@ -31,6 +31,7 @@ jobs:
           curl --fail --location --output release/delta/Delta.lua 'https://raw.githubusercontent.com/Goober2112/Gloop/refs/heads/main/scripts/ui/Delta.lua'
           echo '5afd72bce87daea28beb0821a0584263f72492469649f04d5196ea752d8a5dc2  release/delta/Delta.lua' | sha256sum --check
           .test-venv/bin/python release/delta/test_bootstrap.py
+          DELTA_TEST_META=1 .test-venv/bin/python release/delta/test_bootstrap.py
       - name: Restore and verify complete APK
         run: python3 release/delta/restore_delta.py
       - name: Install and start on Android 16
