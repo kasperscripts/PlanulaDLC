@@ -73,20 +73,48 @@ local function license_response(url)
     return nil
 end
 
-local seen_http = {}
+local methods, proxies = {}, {}
 for _, name in ipairs({ "HttpGet", "HttpGetAsync" }) do
     local ok, fn = pcall(function() return game[name] end)
-    if ok and type(fn) == "function" and not seen_http[fn] then
-        seen_http[fn] = true
-        local original
+    if ok and type(fn) == "function" then
+        if type(clonefunction) == "function" then fn = clonefunction(fn) end
+        methods[name] = fn
+        local original = fn
         local callback = function(self, url, ...)
             local response = license_response(url)
             if response then return response end
             return original(self, url, ...)
         end
+        proxies[name] = type(newcclosure) == "function" and newcclosure(callback) or callback
+    end
+end
+
+local index_hooked = false
+if type(hookmetamethod) == "function" then
+    local original_index
+    local callback = function(self, name)
+        if self == game and proxies[name] then return proxies[name] end
+        return original_index(self, name)
+    end
+    if type(newcclosure) == "function" then callback = newcclosure(callback) end
+    local ok, old = pcall(hookmetamethod, game, "__index", callback)
+    if ok then original_index = old; index_hooked = true end
+    if type(getnamecallmethod) == "function" then
+        local original_namecall
+        local callback = function(self, url, ...)
+            local name = getnamecallmethod()
+            if self == game and proxies[name] then return proxies[name](self, url, ...) end
+            return original_namecall(self, url, ...)
+        end
         if type(newcclosure) == "function" then callback = newcclosure(callback) end
-        local hooked, old = pcall(hookfunction, fn, callback)
-        if hooked then original = old end
+        local ok, old = pcall(hookmetamethod, game, "__namecall", callback)
+        if ok then original_namecall = old end
+    end
+end
+if not index_hooked then
+    local seen = {}
+    for name, fn in pairs(methods) do
+        if not seen[fn] then pcall(hookfunction, game[name], proxies[name]);seen[fn] = true end
     end
 end
 
