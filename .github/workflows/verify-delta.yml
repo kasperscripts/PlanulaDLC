@@ -1,0 +1,54 @@
+name: Verify and upload Delta fixed-key APK
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  verify-upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            delta.lua
+            release/delta/restore_delta.py
+            release/delta/Delta-2.745.1142-Icon_Crack.delta
+            release/delta/test_bootstrap.py
+            release/delta/test_candidate.sh
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+      - name: Prepare runtime
+        run: |
+          sudo chmod 666 /dev/kvm
+          sudo apt-get update
+          sudo apt-get install -y xdelta3
+          python3 -m venv .test-venv
+          .test-venv/bin/pip install lupa==2.8
+      - name: Test exact activation and menu callbacks
+        run: |
+          cp delta.lua release/delta/bootstrap.lua
+          curl --fail --location --output release/delta/Delta.lua 'https://raw.githubusercontent.com/Goober2112/Gloop/refs/heads/main/scripts/ui/Delta.lua'
+          echo '5afd72bce87daea28beb0821a0584263f72492469649f04d5196ea752d8a5dc2  release/delta/Delta.lua' | sha256sum --check
+          .test-venv/bin/python release/delta/test_bootstrap.py
+      - name: Restore and verify complete APK
+        run: python3 release/delta/restore_delta.py
+      - name: Install and start on Android 16
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -memory 4096 -partition-size 8192
+          script: bash release/delta/test_candidate.sh
+      - name: Upload one complete APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload delta-2.745.1142-icon-crack release/delta/Delta-2.745.1142-Icon_Crack.apk --repo "$GITHUB_REPOSITORY"
+      - name: Keep verification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: delta-fixed-key-evidence
+          path: delta-candidate-evidence/
