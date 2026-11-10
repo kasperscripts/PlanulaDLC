@@ -1,13 +1,24 @@
 from pathlib import Path
+import os
 from lupa import LuaRuntime
 root=Path(__file__).resolve().parent
 lua=LuaRuntime(unpack_returned_tuples=True)
+lua.globals().enable_meta = os.environ.get('DELTA_TEST_META') == '1'
 lua.execute(r'''
 local hooked, consts, upvalues = {}, {}, {}
 _G.hooked = hooked
 _G.invoke = function(fn, ...) return (hooked[fn] or fn)(...) end
 hookfunction = function(fn, replacement) hooked[fn]=replacement;return fn end
 newcclosure = function(fn) return fn end
+metaHooks={}
+if enable_meta then
+ hookmetamethod=function(obj,name,replacement)
+  metaHooks[name]=replacement
+  if name=='__index' then return function(self,key)return rawget(self,key)end end
+  return function()return 'original-namecall' end
+ end
+ getnamecallmethod=function()return currentNamecall end
+end
 getgenv = function() return _G end
 debug.getconstants = function(fn) return consts[fn] or {} end
 debug.getupvalues = function(fn) return upvalues[fn] or {} end
@@ -79,12 +90,17 @@ assert 'cracked by @Icon_Crack' in lua.globals().footer.Text
 for button in ['getkey','social']:
  lua.globals().click(lua.globals()[button])
  assert lua.globals().clipboard=='https://t.me/Icon_Crack'
-http=lua.globals().game.HttpGet
+http=lua.globals().metaHooks['__index'](lua.globals().game,'HttpGet') if lua.globals().enable_meta else lua.globals().game.HttpGet
 invoke=lua.globals().invoke
 for url in ['https://api.platorelay.com/public/whitelist/6?key=FREE_old','https://api.platoboost.net/public/whitelist/6?key=@Icon_Crack']:
  assert '"valid":false' in invoke(http,lua.globals().game,url)
 assert '"value":false' in invoke(http,lua.globals().game,'https://api.platorelay.com/public/flag/6?name=keyless')
 assert invoke(http,lua.globals().game,'https://example.com/data')=='upstream:https://example.com/data'
+if lua.globals().enable_meta:
+ lua.globals().currentNamecall='HttpGetAsync'
+ assert '"valid":false' in lua.globals().metaHooks['__namecall'](lua.globals().game,'https://api.platorelay.com/public/whitelist/6?key=FREE_old')
+ lua.globals().currentNamecall='OtherMethod'
+ assert lua.globals().metaHooks['__namecall'](lua.globals().game,'https://example.com/data')=='original-namecall'
 invoke(lua.globals().loadstring,(root/'Delta.lua').read_text(),'Delta modified UI')
 modified=lua.globals().last_source
 assert '/public/whitelist/' not in modified
