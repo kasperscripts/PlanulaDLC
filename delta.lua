@@ -2,7 +2,7 @@
 local KEY = "@Icon_Crack"
 local TELEGRAM = "https://t.me/Icon_Crack"
 local function accepts(key)
-    return type(key) == "string" and key == KEY
+    return type(key) == "string" and key == "@Icon_Crack"
 end
 
 local globals = getgenv()
@@ -56,7 +56,7 @@ local function inspect(fn, depth)
 end
 
 local function copy_telegram()
-    setclipboard(TELEGRAM)
+    setclipboard("https://t.me/Icon_Crack")
 end
 
 -- Keep the server from granting a previously cached or keyless session while the UI initializes.
@@ -114,9 +114,11 @@ end
 
 if type(loadstring) == "function" then
     local original
-    local ok, old = pcall(hookfunction, loadstring, function(source, ...)
+    local callback = function(source, ...)
         return original(rewrite_source(source), ...)
-    end)
+    end
+    if type(newcclosure) == "function" then callback = newcclosure(callback) end
+    local ok, old = pcall(hookfunction, loadstring, callback)
     if ok then original = old end
 end
 
