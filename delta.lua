@@ -144,7 +144,26 @@ local function patch_holder(input)
     local activate = buttons and buttons:FindFirstChild("Button1")
     local getkey = buttons and buttons:FindFirstChild("Button2")
     if not (holder and holder.Name == "Holder" and activate and getkey) then return end
-    for _, connection in ipairs(connections(activate)) do inspect(callback(connection), 2) end
+    for _, connection in ipairs(connections(activate)) do
+        local fn = callback(connection)
+        inspect(fn, 2)
+        if type(fn) == "function" and type(getfenv) == "function" then
+            local ok, scope = pcall(getfenv, fn)
+            if ok and type(scope) == "table" then inspect(scope.checkkey, 2) end
+        end
+    end
+    if not state.scanned and type(getgc) == "function" then
+        state.scanned = true
+        local ok, values = pcall(getgc, true)
+        if ok and type(values) == "table" then
+            for _, fn in pairs(values) do
+                if type(fn) == "function" then
+                    local values = constants(fn)
+                    if has(values, "/public/whitelist/") or has(values, "/public/flag/") then inspect(fn, 0) end
+                end
+            end
+        end
+    end
     if state.source or (state.verify and state.sanitize) then
         input.PlaceholderText = KEY
         local title = row:FindFirstChild("Title")
